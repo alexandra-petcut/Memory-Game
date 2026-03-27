@@ -9,21 +9,22 @@ class MemoryGame:
         self.master = master
         self.master.title("Memory Game")
         self.master.geometry("900x600")
-        self.master.configure(bg = "#1a1a2e")
+        self.master.configure(bg = "#D6E4F0")
 
         # Custom font
         self.custom_font = ("Helvetica", 14, "bold")
         self.colors = {
-            'bg': "#1a1a2e",
-            'sidebar_bg': "#16213e",
-            'card_bg': "#0f3496",
-            'card_fg': "#e94560",
-            'text': "#ffffff",
-            'button_bg': "#4caf50",
-            'button_fg':"#ffffff",
-            'combobox_bg': "#32374b",
-            'combobox_fg': "#ffffff",
-            'gameover_bg': "#0f3460"
+            'bg': "#D6E4F0",
+            'sidebar_bg': "#B8CCE0",
+            'card_bg': "#5B8DB8",
+            'card_fg': "#F0F5FA",
+            'text': "#1E3A5F",
+            'button_bg': "#4A7FAA",
+            'button_fg': "#F0F5FA",
+            'combobox_bg': "#A8C4DC",
+            'combobox_fg': "#1E3A5F",
+            'gameover_bg': "#B8CCE0",
+            'text_fill': "#000000"
         }
 
         self.difficulty_levels = {
@@ -85,6 +86,7 @@ class MemoryGame:
             "TCombobox": {
                 "configure": {
                     "selectbackground": self.colors['combobox_bg'],
+                    "selectforeground": self.colors['combobox_fg'],
                     "fieldbackground": self.colors['combobox_bg'],
                     "background": self.colors['button_bg'],
                     "foreground": self.colors['combobox_fg']
@@ -120,7 +122,7 @@ class MemoryGame:
                                     command=self.new_game)
         self.new_game_button.pack(pady=30)
 
-        self.new_game_button.bind("<Enter>",lambda e: e.widget.config(bg="#5dbb5e")) # lighten on hover
+        self.new_game_button.bind("<Enter>",lambda e: e.widget.config(bg="#6A9BC0")) # lighten on hover
         self.new_game_button.bind("<Leave>", lambda e: e.widget.config(bg=self.colors['button_bg']))
 
     def create_game_grid(self):
@@ -159,23 +161,22 @@ class MemoryGame:
                                     outline=self.colors['card_bg'], width=2,  
                                     state='hidden', tags=('front',))  
                 
-                card.create_text(40, 50, text=self.symbols[card_idx],  
-                               font=("Helvetica", 24, "bold"),       
-                               fill=self.colors['card_bg'],          
+                card.create_text(40, 50, text=self.symbols[card_idx],
+                               font=("Seoge UI Emoji", 24),
+                               fill=self.colors['text_fill'],
                                state='hidden', tags=('symbol',))     
 
                 self.cards.append(card)  # Add card to list for later reference
 
     def on_card_click(self, idx): 
         # Start timer
-        #if self.start_time is None:  # If this is the first click of the game
-         #   self.start_time = time.time()  
-          #  self.update_time()
+        if self.start_time is None:  # If this is the first click of the game
+            self.start_time = time.time()  
+            self.update_time()
 
-        # Ignore invalid clicks
-        #if idx in self.revealed or idx in self.matched_cards or len(self.revealed) == 2:
-            # Skip if card is already revealed, matched, or 2 cards are already flipped
-          #  return
+        # Ignore invalid clicks - fixed bug
+        if idx in self.revealed or idx in self.matched_cards or len(self.revealed) == 2:
+            return
 
         # Reveal the clicked card
         self.reveal_card(idx)
@@ -206,7 +207,7 @@ class MemoryGame:
 
             for idx in [idx1, idx2]:
                 card = self.cards[idx]
-                card.itemconfig('front', fill="#8bc34a")  
+                card.itemconfig('front', fill="#A3C8E8")  
 
             if self.matched_pairs == len(self.symbols) // 2:
                 self.master.after(500, self.game_over)  
@@ -217,6 +218,13 @@ class MemoryGame:
         
         self.revealed.clear()  # Clear the revealed cards list for next move
 
+    def update_time(self):
+        if self.start_time  and not self.game_solved:
+            elapsed_time = int(time.time()-self.start_time)
+            minutes, seconds = divmod(elapsed_time,60)
+
+            self.time_label.config(text=f"Time: {minutes}:{seconds:02d}")
+            self.master.after(1000,self.update_time)
 
 
     def new_game(self):
@@ -241,8 +249,72 @@ class MemoryGame:
             self.current_difficulty = new_difficulty
             self.new_game()
 
+    def game_over(self):
+        self.game_solved = True
+        elapsed_time = int(time.time() - self.start_time)
+        minutes, seconds = divmod(elapsed_time, 60)
 
-                
+        # Create game_over window
+        game_over_window = tk.Toplevel(self.master)
+        game_over_window.title("Game Over")
+        game_over_window.geometry("350x350")
+        game_over_window.configure(bg=self.colors['gameover_bg'])
+        game_over_window.grab_set() # Make window modal
+        game_over_window.transient(self.master) # Set as transient to main window 
+
+        x = self.master.winfo_x() + (self.master.winfo_width() // 2) - (350 // 2)
+        y = self.master.winfo_y() + (self.master.winfo_height() // 2) - (350 // 2)
+        game_over_window.geometry(f"+{x}+{y}")
+ 
+        # Congratulations label
+        tk.Label(game_over_window, text="Congratulations!", 
+              font=("Helvetica", 28, "bold"),            
+              bg=self.colors['gameover_bg'], fg=self.colors['text']).pack(pady=(20, 30)) 
+
+        # Stats frame
+        stats_frame = tk.Frame(game_over_window, bg=self.colors['gameover_bg'])  
+        stats_frame.pack(pady=(0, 30))
+
+        # Show 
+        self.create_stat_label(stats_frame, "Difficulty", self.current_difficulty)
+        self.create_stat_label(stats_frame, "Moves", str(self.moves))  
+        self.create_stat_label(stats_frame, "Time", f"{minutes}:{seconds:02d}")  
+    
+        play_again_button = tk.Button(game_over_window, text="Play Again", 
+                         font=self.custom_font,                 
+                         bg=self.colors['button_bg'], fg=self.colors['button_fg'], 
+                         relief=tk.FLAT,    
+                         command=lambda: [game_over_window.destroy(), self.new_game()]) 
+        play_again_button.pack(pady=20)
+
+        play_again_button.bind("<Enter>", 
+            lambda e: e.widget.config(bg="#6A9BC0"))
+        play_again_button.bind("<Leave>", 
+            lambda e: e.widget.config(bg=self.colors['button_bg']))
+
+    def create_stat_label(self,parent,label,value):
+        frame = tk.Frame(parent, bg=self.colors['gameover_bg'])
+        frame.pack(fill=tk.X, pady=5)
+
+        tk.Label(
+            frame,
+            text=f"{label}:",
+            font=("Helvetica", 14),
+            bg=self.colors['gameover_bg'],
+            fg=self.colors['text']
+        ).pack(side=tk.LEFT, padx=(0,10))
+        
+        tk.Label(
+            frame,
+            text=value, 
+            font=("Helvetica", 14, "bold"),
+            bg=self.colors['gameover_bg'],
+            fg=self.colors['card_fg']
+        ).pack(side=tk.LEFT)
+
+
+
+
 
 if __name__ == "__main__":
     root = tk.Tk() # create main window
